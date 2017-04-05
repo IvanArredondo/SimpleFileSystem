@@ -43,9 +43,9 @@ void mkssfs(int fresh){
        Block *block = calloc(1, _BLOCK_SIZE);
        printf("%d\n", i);
         for(int j = 0; j < 11 ; j++){
-            INode iNode;
-            iNode.size = _INODE_SIZE;
-            iNode.direct[0] = 5;
+            INode *iNode = (INode *)block;
+            iNode[j].size = _INODE_SIZE;
+            iNode[j].direct[0] = 5;
             int *p = memcpy(block, &iNode, sizeof(iNode));
            // block++;//this is the issue, since block is 1024 bytes, it increments by 1024 
             printf("%d\n", *p);
