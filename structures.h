@@ -15,11 +15,17 @@ typedef struct blocks{
 }Block;
 
 typedef struct iNodes{
-    unsigned int size;
+    int size;
     unsigned int direct[14];
     unsigned int indirect;
 
 }INode;
+
+typedef struct rootdirs{
+    char fileName[16];
+    unsigned int iNodeNumber;
+
+}RootDirectory;
 
 typedef struct superBlocks{
     unsigned char magic[4];
