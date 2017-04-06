@@ -13,7 +13,7 @@ FileDesc FDTable[10];
 
 Block iNodesBlockBuffer[14];
 
-RootDirectory *rootDir;
+RootDirectory rootDir;
 
 int main(int argc, char*argv[]){
 char *fileName = "FileSystem";
@@ -32,6 +32,8 @@ void mkssfs(int fresh){
 
   //Initializing root dir 
 
+    unsigned char* rootDirs = calloc(5, _BLOCK_SIZE);
+
     
 
     strncpy(SB.magic, magic, 4);
@@ -43,15 +45,18 @@ void mkssfs(int fresh){
 
     Block *super = calloc(1, _BLOCK_SIZE);
 
-    printf("%lu\n", sizeof(*super));
     memcpy(super, &SB, sizeof(SB));
+    memcpy(rootDirs, &rootDir, sizeof(rootDir));
+
 
     Block blocksBuffer[1] = {*super};
 
     
     /******* Writing to the disk *******/
     int ret = write_blocks(0,1,blocksBuffer);
+    int rdirs = write_blocks(1, 5, rootDirs);
 
+    int counter = 19;
 
     for(int i = 0; i < 14; i++){
        Block *block = calloc(1, _BLOCK_SIZE);
@@ -59,40 +64,44 @@ void mkssfs(int fresh){
 
         for(int j = 0; j < 16 ; j++){
                 iNode[j].size = -1;
-                iNode[j].direct[0] = 3;
+                for(int k = 0; k < 14; k++){
+                    iNode[j].direct[k] = counter;
+                    counter++;
                //printf("In the condition\n");
-
+                }
                        // block++;//this is the issue, since block is 1024 bytes, it increments by 1024 
         }
         int *p = memcpy(block, iNode, sizeof(iNode));
         free(iNode);
         iNodesBlockBuffer[i] = *block;
     }
-    ret = write_blocks(1,14,iNodesBlockBuffer);
+    ret = write_blocks(6,14,iNodesBlockBuffer);
 }
 
 int ssfs_fopen(char *name){
 
-    Block *buff = calloc(1, _BLOCK_SIZE*14);
+    unsigned char *buff = calloc(14, _BLOCK_SIZE);
     INode *iNodesBlocks = (INode *)buff;
-    int result = read_blocks(1, 14,iNodesBlocks);
+    int iNodeNumber;
+
+    /**** Reading the INodes *****/
+    int result = read_blocks(6, 14,iNodesBlocks);
    
     printf("the tests \n");
-    printf("size of the list is : %lu\n", sizeof(*buff));
     
-    INode freeINode;
-    printf("number of iNodes is : %lu\n", sizeof(&iNodesBlocks)/sizeof(&iNodesBlocks[0]));
-
     for(int i = 0; i < 224; i++){
         if(iNodesBlocks[i].size == -1){
-            freeINode = iNodesBlocks[i];
-            printf("The First free I-Node is : %d\n", i);
+            iNodesBlocks[i].size = 0;
+            iNodeNumber = i;
+            printf("The First free I-Node is : %d\n", iNodeNumber);
             break;
         }
 
     }
 
-    printf("%d\n", freeINode.direct[0]);
+    write_blocks(6,14,buff);
+    free(iNodesBlocks);
+
     printf("%d\n", iNodesBlocks[1].size);
     printf("%d\n", iNodesBlocks[13].size);
 

@@ -21,10 +21,14 @@ typedef struct iNodes{
 
 }INode;
 
-typedef struct rootdirs{
+typedef struct rootDirsEntries{
     char fileName[16];
     unsigned int iNodeNumber;
 
+}RootDirectoryEntry;
+
+typedef struct rootdirs{
+    RootDirectoryEntry lookUpTable[224];
 }RootDirectory;
 
 typedef struct superBlocks{
