@@ -7,7 +7,7 @@
 #define _BLOCK_SIZE 1024
 #define _INODE_SIZE 16
 #define _NUMBER_OF_BLOCKS 2850
-#define _NUMBER_OF_INODES 201
+#define _NUMBER_OF_INODES 224
 
 typedef struct blocks{
     unsigned char bytes[_BLOCK_SIZE];
@@ -23,7 +23,7 @@ typedef struct iNodes{
 
 typedef struct rootDirsEntries{
     char fileName[16];
-    unsigned int iNodeNumber;
+    int iNodeNumber;
 
 }RootDirectoryEntry;
 
@@ -42,7 +42,7 @@ typedef struct superBlocks{
 
 
 typedef struct fileDescs{
-    INode file;
+    unsigned int  iNodeNumber;
     unsigned int readPointer;
     unsigned int writePointer;
     unsigned int freeBit;
