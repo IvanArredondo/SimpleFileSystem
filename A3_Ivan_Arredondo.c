@@ -197,13 +197,11 @@ int ssfs_fopen(char *name){
 
 int ssfs_fclose(int fileID){
 
-    for(int i = 0; i < 224; i++){
-        if(fdTable[i].freeBit == 1){
-            if(fdTable[i].iNodeNumber == fileID){
-                fdTable[i].iNodeNumber = -1;
-                fdTable[i].readPointer = 0;
-                fdTable[i].writePointer = 0;
-                fdTable[i].freeBit = 0;
+        if(fdTable[fileID].freeBit == 1){
+                fdTable[fileID].iNodeNumber = -1;
+                fdTable[fileID].readPointer = 0;
+                fdTable[fileID].writePointer = 0;
+                fdTable[fileID].freeBit = 0;
                 for(int j = 0; j < 224; j++){
                     if(rootDirectoryEntries[j].iNodeNumber == fileID){ 
                         printf("we close: %s\n", rootDirectoryEntries[j].fileName);
@@ -211,10 +209,77 @@ int ssfs_fclose(int fileID){
                     }
                 }
 
-            }
         }
-    }
     return -1;
+}
+
+int ssfs_frseek(int fileID, int loc){
+
+    //making room for all inodes
+    unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
+    INode *iNodesBlocks = (INode *)iNodesBuff;
+    /**** Reading the INodes *****/
+    int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+    
+    if(fdTable[fileID].freeBit == 0){
+        printf("No open file with that ID");
+     }
+
+
+     if(loc < 0){
+        printf("Cannot seek negative location");
+        return -1;
+     }
+
+     if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
+        printf("Error, trying to read past end of the file");
+        return -1;
+     }
+
+     fdTable[fileID].readPointer = loc;
+     
+     return 0;
+
+}
+
+int ssfs_fwseek(int fileID, int loc){
+
+    //making room for all inodes
+    unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
+    INode *iNodesBlocks = (INode *)iNodesBuff;
+    /**** Reading the INodes *****/
+    int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+    
+    if(fdTable[fileID].freeBit == 0){
+        printf("No open file with that ID");
+     }
+
+
+     if(loc < 0){
+        printf("Cannot seek negative location");
+        return -1;
+     }
+
+     if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
+        printf("Error, trying to read past end of the file");
+        return -1;
+     }
+
+
+     fdTable[fileID].writePointer = loc;
+
+     return 0;
+
+}
+
+int ssfs_fread(int fileID, char *buf, int length){
+    
+    //making room for all inodes
+    unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
+    INode *iNodesBlocks = (INode *)iNodesBuff;
+    /**** Reading the INodes *****/
+    int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+    
 }
 
 int ssfs_write(int fileID, char *buf, int length){
