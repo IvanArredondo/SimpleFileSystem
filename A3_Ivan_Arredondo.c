@@ -5,6 +5,8 @@
 /******* Setting things up in Memory *******/
 SuperBlock SB;
 
+char *fileName = "FileSystem";
+
 unsigned char* magic = "7777";
 
 INode JNode;   //the root node
@@ -18,7 +20,6 @@ RootDirectory rootDir;
 RootDirectoryEntry *rootDirectoryEntries; 
 
 int main(int argc, char*argv[]){
-    char *fileName = "FileSystem";
 
     //intializing the file descriptor table
     fdTable = calloc(_NUMBER_OF_INODES, sizeof(FileDesc));
@@ -27,11 +28,20 @@ int main(int argc, char*argv[]){
         fdTable[i].freeBit = 0;
     }
 
-    int i = init_disk(fileName, _BLOCK_SIZE, _NUMBER_OF_BLOCKS);
 
     mkssfs(1);
 
-    int res = ssfs_fopen("hello");
+    for(int i = 0; i <50; i++){
+        ssfs_fopen("hello world" + i);
+    }
+
+    ssfs_fclose(1);
+ssfs_fclose(0);
+ssfs_fclose(4);
+
+for(int i = 0; i <10; i++){
+    printf("fd table: %d \n", fdTable[i].freeBit);
+}
 
     return 0;
 }
@@ -39,52 +49,59 @@ int main(int argc, char*argv[]){
 
 void mkssfs(int fresh){
 
-    //Initializing root dir 
+    if(fresh){
+        //Initializing root dir 
 
-    unsigned char *entriesBuff = calloc(5, _BLOCK_SIZE);
-    rootDirectoryEntries = (RootDirectoryEntry *)entriesBuff;
+        int i = init_disk(fileName, _BLOCK_SIZE, _NUMBER_OF_BLOCKS);
 
-    //setting up the root dir entries
-    for(int i = 0; i < 224; i++){
-        rootDirectoryEntries[i].iNodeNumber = -1;
-    }
+        unsigned char *entriesBuff = calloc(5, _BLOCK_SIZE);
+        rootDirectoryEntries = (RootDirectoryEntry *)entriesBuff;
 
-    int rootDirsWrite = write_blocks(1, 5, rootDirectoryEntries);
-
-    strncpy(SB.magic, magic, 4);
-
-    SB.blockSize = _BLOCK_SIZE;
-    SB.blocksCount = _NUMBER_OF_BLOCKS;
-    SB.iNodesCount = _NUMBER_OF_INODES;
-    SB.jNode = JNode;
-
-    Block *super = calloc(1, _BLOCK_SIZE);
-
-    memcpy(super, &SB, sizeof(SB));
-
-
-    Block blocksBuffer[1] = {*super};
-
-
-    /******* Writing to the disk *******/
-    int ret = write_blocks(0,1,blocksBuffer);
-
-    int counter = 19;
-
-    unsigned char *iBlocks = calloc(14, _BLOCK_SIZE);
-    INode *iNode = (INode *)iBlocks;
-
-    for(int j = 0; j < 224 ; j++){
-        iNode[j].size = -1;
-        for(int k = 0; k < 14; k++){
-            iNode[j].direct[k] = counter;
-            counter++;
+        //setting up the root dir entries
+        for(int i = 0; i < 224; i++){
+            rootDirectoryEntries[i].iNodeNumber = -1;
         }
-        //printf("In the condition\n");
-        // block++;//this is the issue, since block is 1024 bytes, it increments by 1024 
+
+        int rootDirsWrite = write_blocks(1, 5, rootDirectoryEntries);
+
+        strncpy(SB.magic, magic, 4);
+
+        SB.blockSize = _BLOCK_SIZE;
+        SB.blocksCount = _NUMBER_OF_BLOCKS;
+        SB.iNodesCount = _NUMBER_OF_INODES;
+        SB.jNode = JNode;
+
+        Block *super = calloc(1, _BLOCK_SIZE);
+
+        memcpy(super, &SB, sizeof(SB));
+
+
+        Block blocksBuffer[1] = {*super};
+
+
+        /******* Writing to the disk *******/
+        int ret = write_blocks(0,1,blocksBuffer);
+
+        int counter = 19;
+
+        unsigned char *iBlocks = calloc(14, _BLOCK_SIZE);
+        INode *iNode = (INode *)iBlocks;
+
+        for(int j = 0; j < 224 ; j++){
+            iNode[j].size = -1;
+            for(int k = 0; k < 14; k++){
+                iNode[j].direct[k] = counter;
+                counter++;
+            }
+            //printf("In the condition\n");
+            // block++;//this is the issue, since block is 1024 bytes, it increments by 1024 
+        }
+        ret = write_blocks(6,14,iBlocks);
+        free(iNode);
+
+    }else{
+        int i = init_disk(fileName, _BLOCK_SIZE, _NUMBER_OF_BLOCKS);
     }
-    ret = write_blocks(6,14,iBlocks);
-    free(iNode);
 }
 
 int ssfs_fopen(char *name){
@@ -115,7 +132,7 @@ int ssfs_fopen(char *name){
         }
         //if no file with the same name and empy directory entry 
     }
-    
+
     //if we didnt find an existing entry
     if(iNodeNumber == -1){
         //finding the first free inode
@@ -131,7 +148,6 @@ int ssfs_fopen(char *name){
                         break;
                     }         
                 }
-                printf("The First free I-Node is : %d\n", iNodeNumber);
                 break;
             }
 
@@ -142,24 +158,26 @@ int ssfs_fopen(char *name){
     write_blocks(1,5,rootDirectoryEntries);
     write_blocks(6,14,iNodesBuff);
 
-    free(rootDirectoryEntries);
-    free(iNodesBuff);
 
+    
 
 
 
     for(int i = 0; i < 224; i++){
         //finding the first free filedesc and setting it equal to the new file inode and fresh pointers
-            if (fdTable[i].freeBit == 0){
-                fdTable[i].iNodeNumber = iNodeNumber; 
-                fdTable[i].readPointer = 0;
-                fdTable[i].writePointer = 0;
-                fdTable[i].freeBit = 1;
-
-            }
-        break;
+        if (fdTable[i].freeBit == 0){
+            fdTable[i].iNodeNumber = iNodeNumber; 
+            fdTable[i].readPointer = 0;
+            fdTable[i].writePointer = 0;
+            fdTable[i].freeBit = 1;
+            printf("added to fdtable");
+            break;
+        }
     }
+    
+    free(iNodesBuff);
 
+    return 0;
 }
 
 
@@ -174,6 +192,30 @@ int ssfs_fopen(char *name){
 
 // }
 // }
+//
+
+
+int ssfs_fclose(int fileID){
+
+    for(int i = 0; i < 224; i++){
+        if(fdTable[i].freeBit == 1){
+            if(fdTable[i].iNodeNumber == fileID){
+                fdTable[i].iNodeNumber = -1;
+                fdTable[i].readPointer = 0;
+                fdTable[i].writePointer = 0;
+                fdTable[i].freeBit = 0;
+                for(int j = 0; j < 224; j++){
+                    if(rootDirectoryEntries[j].iNodeNumber == fileID){ 
+                        printf("we close: %s\n", rootDirectoryEntries[j].fileName);
+                        break;
+                    }
+                }
+
+            }
+        }
+    }
+    return -1;
+}
 
 int ssfs_write(int fileID, char *buf, int length){
 
