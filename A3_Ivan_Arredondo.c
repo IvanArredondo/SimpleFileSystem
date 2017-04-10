@@ -31,17 +31,20 @@ int main(int argc, char*argv[]){
 
     mkssfs(1);
 
-    for(int i = 0; i <50; i++){
+    for(int i = 0; i <4; i++){
         ssfs_fopen("hello world" + i);
     }
 
-    ssfs_fclose(1);
-ssfs_fclose(0);
-ssfs_fclose(4);
-
-for(int i = 0; i <10; i++){
-    printf("fd table: %d \n", fdTable[i].freeBit);
-}
+    for(int i = 0; i <10; i++){
+        printf("fd table: %d \n", fdTable[i].freeBit);
+    }
+    unsigned char *read = calloc(1, 20);
+    unsigned char *writeThis = "Suh Dude";
+    unsigned char *w1 = "WOrking";
+    ssfs_fwrite(0, writeThis, 12);
+    ssfs_fread(0, read, 10);
+    ssfs_fwrite(3, w1, 12);
+    ssfs_fread(3, read, 10);
 
     return 0;
 }
@@ -88,6 +91,7 @@ void mkssfs(int fresh){
         INode *iNode = (INode *)iBlocks;
 
         for(int j = 0; j < 224 ; j++){
+            Block *aBlock = calloc(1, _BLOCK_SIZE);
             iNode[j].size = -1;
             for(int k = 0; k < 14; k++){
                 iNode[j].direct[k] = counter;
@@ -159,7 +163,7 @@ int ssfs_fopen(char *name){
     write_blocks(6,14,iNodesBuff);
 
 
-    
+
 
 
 
@@ -174,7 +178,7 @@ int ssfs_fopen(char *name){
             break;
         }
     }
-    
+
     free(iNodesBuff);
 
     return 0;
@@ -197,19 +201,19 @@ int ssfs_fopen(char *name){
 
 int ssfs_fclose(int fileID){
 
-        if(fdTable[fileID].freeBit == 1){
-                fdTable[fileID].iNodeNumber = -1;
-                fdTable[fileID].readPointer = 0;
-                fdTable[fileID].writePointer = 0;
-                fdTable[fileID].freeBit = 0;
-                for(int j = 0; j < 224; j++){
-                    if(rootDirectoryEntries[j].iNodeNumber == fileID){ 
-                        printf("we close: %s\n", rootDirectoryEntries[j].fileName);
-                        break;
-                    }
-                }
-
+    if(fdTable[fileID].freeBit == 1){
+        fdTable[fileID].iNodeNumber = -1;
+        fdTable[fileID].readPointer = 0;
+        fdTable[fileID].writePointer = 0;
+        fdTable[fileID].freeBit = 0;
+        for(int j = 0; j < 224; j++){
+            if(rootDirectoryEntries[j].iNodeNumber == fileID){ 
+                printf("we close: %s\n", rootDirectoryEntries[j].fileName);
+                break;
+            }
         }
+
+    }
     return -1;
 }
 
@@ -220,25 +224,26 @@ int ssfs_frseek(int fileID, int loc){
     INode *iNodesBlocks = (INode *)iNodesBuff;
     /**** Reading the INodes *****/
     int iNodeResult = read_blocks(6, 14,iNodesBlocks);
-    
+
     if(fdTable[fileID].freeBit == 0){
         printf("No open file with that ID");
-     }
+        return -1;
+    }
 
 
-     if(loc < 0){
+    if(loc < 0){
         printf("Cannot seek negative location");
         return -1;
-     }
+    }
 
-     if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
+    if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
         printf("Error, trying to read past end of the file");
         return -1;
-     }
+    }
 
-     fdTable[fileID].readPointer = loc;
-     
-     return 0;
+    fdTable[fileID].readPointer = loc;
+
+    return 0;
 
 }
 
@@ -249,44 +254,146 @@ int ssfs_fwseek(int fileID, int loc){
     INode *iNodesBlocks = (INode *)iNodesBuff;
     /**** Reading the INodes *****/
     int iNodeResult = read_blocks(6, 14,iNodesBlocks);
-    
+
     if(fdTable[fileID].freeBit == 0){
         printf("No open file with that ID");
-     }
+        return -1;
+    }
 
 
-     if(loc < 0){
+    if(loc < 0){
         printf("Cannot seek negative location");
         return -1;
-     }
+    }
 
-     if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
+    if((fdTable[fileID].readPointer + loc) > iNodesBlocks[fdTable[fileID].iNodeNumber].size){
         printf("Error, trying to read past end of the file");
         return -1;
-     }
+    }
 
 
-     fdTable[fileID].writePointer = loc;
+    fdTable[fileID].writePointer = loc;
 
-     return 0;
+    return 0;
 
 }
 
 int ssfs_fread(int fileID, char *buf, int length){
-    
+
     //making room for all inodes
     unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
     INode *iNodesBlocks = (INode *)iNodesBuff;
     /**** Reading the INodes *****/
     int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+
+    INode fileInode = iNodesBlocks[fdTable[fileID].iNodeNumber];
+
+    unsigned char *blocksBuff = calloc(14, _BLOCK_SIZE);
+
+
+    //making sure it is open/ it is in the filedesc table
+    if(fdTable[fileID].freeBit == 0){
+        printf("No open file with that ID");
+        return -1;
+    }
+
+    //todo check if read pointer + length is less than buff (idk how to check sizeof of buff cause that function is weird)
+
+        //reading one by one into blockBuff
+        read_blocks(fileInode.direct[0], 14,blocksBuff);
+
+    for(int i = 0; i < length; i++){
+        buf[i] = blocksBuff[i + fdTable[fileID].readPointer];
+    }
+
+    for(int i = 0; i < 10; i ++){
+        printf("%c", buf[i]);
+    }
+
+    free(iNodesBuff);
+
+
+}
+
+int ssfs_fwrite(int fileID, char *buf, int length){
+
+    //making room for all inodes
+    unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
+    INode *iNodesBlocks = (INode *)iNodesBuff;
+    /**** Reading the INodes *****/
+    int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+
+    INode fileInode = iNodesBlocks[fdTable[fileID].iNodeNumber];
+
+    printf("the iNode Number is : %d \n", fdTable[fileID].iNodeNumber);
+            
+    unsigned char *blocksBuff = calloc(14, _BLOCK_SIZE);
+
+    //making sure it is open/ it is in the filedesc table
+    if(fdTable[fileID].freeBit == 0){
+        printf("No open file with that ID");
+        return -1;
+    }
+
+//todo check if read pointer + length is less than buff (idk how to check sizeof of buff cause that function is weird)
+
+        //reading one by one into blockBuff
+        read_blocks(fileInode.direct[0], 14, blocksBuff);
+
+    for(int i = 0; i < length; i++){
+        blocksBuff[i + fdTable[fileID].writePointer] = buf[i];
+    }
+
     
+    printf("it starts at : %d \n", fileInode.direct[0]);
+    write_blocks(fileInode.direct[0], 14, blocksBuff);
+
+    free(iNodesBuff);
+    return 0;
+
+
+
 }
 
-int ssfs_write(int fileID, char *buf, int length){
+int ssfs_remove(char *file){
+
+    //making room for all inodes
+    unsigned char *iNodesBuff = calloc(14, _BLOCK_SIZE);
+    INode *iNodesBlocks = (INode *)iNodesBuff;
+    /**** Reading the INodes *****/
+    int iNodeResult = read_blocks(6, 14,iNodesBlocks);
+
+
+    int iNodeNumber = -1;
+
+    int rootDirsResult = read_blocks(1,5,rootDirectoryEntries);
+
+    //checking to see if file exists
+    for(int i = 0; i < 224; i++){
+        //if we find a file with the name
+        if(!strcmp(rootDirectoryEntries[i].fileName, file)){
+            iNodeNumber = rootDirectoryEntries[i].iNodeNumber;
+            ssfs_fclose(rootDirectoryEntries[i].iNodeNumber);
+            //setting all the values of the blocks that the inode poined to, to zero
+            for(int i = 0; i < 14; i++){
+                Block *emptyBlock = calloc(1, _BLOCK_SIZE);
+               write_blocks(iNodesBlocks[iNodeNumber].direct[i], 1, emptyBlock);
+            }
+            //zeroing the directory entry and writing back changes
+            memset(rootDirectoryEntries[i].fileName, 0, 16);
+            rootDirectoryEntries[i].iNodeNumber = -1;
+            write_blocks(1, 5, rootDirectoryEntries);
+            return 0;
+            break;
+        }
+        //if no file with the same name and empy directory entry 
+    }
+
+
+
 
 
 }
-
 
 
 
